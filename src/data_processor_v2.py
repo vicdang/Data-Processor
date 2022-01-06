@@ -33,19 +33,18 @@ class DataProcessor(object):
       data = kwargs.get('data', None)
       self.dp = pd.DataFrame(data)
       pd.set_option('display.max_columns', None)
-      self.avg_d_ut = self.avg_v_d_ut = \
-         self.avg_c_v_d_ut = self.avg_v_z = [0, 0, 0]
+      self.avg_d_ut = self.avg_v_d_ut = self.avg_c_v_d_ut = self.avg_v_z = \
+         [0, 0, 0]
       self.avg_z = 0
-      self.dut = self.z = []
+      self.dut = self.z = self.v_d_ut_tmp = self.slop = self.intercept = []
       self.d_theta = self.dp
       self.rect_count = self.conf.get("general", "rect_count")
-      self.v_d_ut_tmp = []
       self.col_r = self.conf.get("general", "col_r")
       self.col_z = self.conf.get("general", "col_z")
       self.col_theta = self.conf.get("general", "col_theta")
 
    def get_avg_delta_ut(self):
-      ut0 = float(self.dp.loc['%s.1' % self.col_r])
+      ut0 = float(self.dp.loc['{col}.1'.format(col=str(self.col_r))])
       for r in range(int(self.rect_count)):
          self.dut.append(float(self.dp.loc['%s.%d' % (self.col_theta, r + 1)])*
                     float(self.dp.loc[('%s.%d' % (self.col_r, r + 1))]) - ut0)
@@ -88,6 +87,23 @@ class DataProcessor(object):
          layer = 2
       return layer
 
+   def get_slop(self):
+      i = 0
+      for item in self.avg_c_v_d_ut:
+         if self.avg_v_z[i] != 0:
+            self.slop.append(item / self.avg_v_z[i])
+         else:
+            self.slop.append(0)
+         logger.info("item")
+         logger.info(item)
+         i += 1
+
+   def get_intercept(self):
+      i = 0
+      for item in self.avg_c_v_d_ut:
+         self.intercept[i] = item - (self.avg_z[i]) * (self.slop[i])
+         i += 1
+
    def filter_data(self, index,
                    regex='([a-zA-Z]+ \[mm\]|\[rad\]|\(cylinder\))'):
       return self.dp.filter(regex=regex)
@@ -123,8 +139,15 @@ class DataProcessor(object):
       self.get_avg_delta_ut()
       self.get_avg_var_delta_ut()
       self.get_avg_z()
+      self.get_avg_v_z()
       self.get_avg_co_var_delta_ut()
-      logger.info(self.avg_c_v_d_ut)
+      self.get_slop()
+      logger.info("slop")
+      logger.info(self.slop)
+      logger.info(len(self.slop))
+      # self.get_intercept()
+      # logger.info("intercept")
+      # logger.info(self.intercept)
       return
 
 def main(args):
