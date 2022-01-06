@@ -1,10 +1,15 @@
 # -*- coding: utf-8 -*-
 # vim:ts=3:sw=3:expandtab
 """
- - Authors: Vic Dang
- - Skype: traxanh_dl
- - Usage example:
-   + python main.py -d -v exec -g 100 -w 5
+---------------------------
+Copyright (C) 2021
+@Authors: dnnvu
+@Date: 30-Dec-21
+@Version: 1.0
+---------------------------
+ Usage example:
+   - python main.py -d -v exec -g 100 -w 5
+
 """
 
 import argparse
@@ -32,8 +37,9 @@ def setup_logging(debug: bool = False):
    else:
       log_level = logging.INFO
    logging.basicConfig(level=log_level,
-                       format='%(asctime)s %(levelname)s %(funcName)s %('
-                              'lineno)d : %(message)s',
+                       format='%(asctime)s - %(levelname)s %(threadName)s - %('
+                              'name)s %(funcName)s %(lineno)d : %('
+                              'message)s',
                        stream=sys.stderr,
                        filemode='w')
    global logger
@@ -67,6 +73,10 @@ def add_args(parser, action='exec'):
                           default=10**6,
                           type=int,
                           help='Number of records')
+      parser.add_argument('--app-version',
+                          default=1,
+                          type=int,
+                          help='Version off app')
 
 def parse_cli():
    """

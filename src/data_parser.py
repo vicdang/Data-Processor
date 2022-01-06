@@ -1,10 +1,15 @@
 # -*- coding: utf-8 -*-
 # vim:ts=3:sw=3:expandtab
 """
- Authors: 
-
+---------------------------
+Copyright (C) 2021
+@Authors: dnnvu
+@Date: 30-Dec-21
+@Version: 1.0
+---------------------------
  Usage example:
-   - <Script>
+   - data_parser.py <options>
+
 """
 import logging
 import sys
@@ -25,6 +30,7 @@ class DataParser(object):
       self.output_file = self.arg.output_file
       self.records_count = 0
       self.sliced_data = {}
+      pd.set_option('display.max_columns', None)
 
    @staticmethod
    def read_data(*argv, **kwargs):
@@ -61,14 +67,22 @@ class DataParser(object):
       """
       step = int(self.arg.group_count)
       groups = int(self.records_count / step) + 1
+      data = None
       logger.debug("Total rows: %d - Slice: %d - Groups: %d" % (
          self.records_count, step, groups))
-      for item in range(0, groups):
-         i = step * item
-         j = i + step - 1
-         data = {"%s-%s" % (i, j): self.data.loc[i:j, :]}
+
+      if self.arg.app_version == 1:
+         for item in range(0, groups):
+            i = step * item
+            j = i + step - 1
+            data = {"%s:%s-%s" % (self.records_count,
+                                  i, j): self.data.loc[i:j, :]}
+      elif self.arg.app_version == 2:
+         data = {"%s:%s-%s" % (self.records_count,
+                               0, self.records_count): self.data}
+      if self.arg.verbose:
          logger.debug(data)
-         self.sliced_data.update(data)
+      self.sliced_data.update(data)
 
    def clone_data(self):
       """
