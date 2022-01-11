@@ -16,6 +16,7 @@ import logging
 import sys
 import re
 import copy
+import math
 
 import utility as util
 import numpy as np
@@ -33,15 +34,32 @@ class DataProcessor(object):
       data = kwargs.get('data', None)
       self.dp = pd.DataFrame(data)
       pd.set_option('display.max_columns', None)
-      self.avg_d_ut = self.avg_v_d_ut = self.avg_c_v_d_ut = self.avg_v_z = \
-         [0, 0, 0]
+      self.avg_d_ut = [0, 0, 0]
+      self.avg_v_d_ut = [0, 0, 0]
+      self.avg_c_v_d_ut = [0, 0, 0]
+      self.avg_v_z = [0, 0, 0]
       self.avg_z = 0
-      self.dut = self.z = self.v_d_ut_tmp = self.slop = self.intercept = []
+      self.dut = []
+      self.z = []
+      self.v_d_ut_tmp = []
+      self.slop = []
+      self.intercept = []
+      self.avg_m = []
+      self.avg_a = []
+      self.R2 = []
+      self.deformation = []
+      self.interface = None
+      self.F = None
+      self.modale = []
+      self.moyenne = None
       self.d_theta = self.dp
       self.rect_count = self.conf.get("general", "rect_count")
       self.col_r = self.conf.get("general", "col_r")
       self.col_z = self.conf.get("general", "col_z")
       self.col_theta = self.conf.get("general", "col_theta")
+      self.dev = self.conf.get("general", "dev")
+      self.f = self.conf.get("general", "f")
+      self.omega = 2 * math.pi * float(self.f)
 
    def get_avg_delta_ut(self):
       ut0 = float(self.dp.loc['{col}.1'.format(col=str(self.col_r))])
@@ -78,6 +96,62 @@ class DataProcessor(object):
          v_z.append((self.z[r] - self.avg_z[self.get_layer(r)])**2)
       self.avg_v_z = self.get_avg([v_z[:12], v_z[12], v_z[12:]])
 
+   def get_avg_m(self):
+      m = []
+      for r in range(int(self.rect_count)):
+         l = self.get_layer(r)
+         m.append(self.slop[l] * self.z[r] + self.intercept[l])
+      self.avg_m = self.get_avg([m[:12], m[12], m[12:]])
+
+   def get_avg_a(self):
+      a = []
+      for r in range(int(self.rect_count)):
+         l = self.get_layer(r)
+         a.append((self.slop[l] * self.z[r] + self.intercept[l] -
+                   self.avg_m[l])**2)
+      self.avg_a = self.get_avg([a[:12], a[12], a[12:]])
+
+   ###
+   def get_slop(self):
+      i = 0
+      for item in self.avg_c_v_d_ut:
+         if self.avg_v_z[i] != 0:
+            self.slop.append(item / self.avg_v_z[i])
+         else:
+            self.slop.append(0)
+         i += 1
+
+   def get_intercept(self):
+      i = 0
+      for item in self.avg_c_v_d_ut:
+         self.intercept.append(item - (self.avg_z[i]) * (self.slop[i]))
+         i += 1
+
+   def get_R2(self):
+      i = 0
+      for item in self.avg_a:
+         self.R2.append(item/self.avg_v_d_ut[i])
+
+   def get_deformation(self):
+      i = 0
+      for item in self.slop:
+         self.deformation.append((item * 10**6)/2)
+
+   def get_interface(self):
+      self.interface = ((self.slop[0] * self.z[12]) + self.intercept[0]) - \
+                       ((self.slop[2] * self.z[12]) + self.intercept[2])
+
+   def get_F(self):
+      self.F = 200 * float(self.dp.loc["%s" % self.dev])
+
+   def get_modale(self):
+      self.modale.extend([float(i) for i in self.deformation])
+      self.modale.append(self.F)
+
+   def get_moyenne(self):
+      self.moyenne = np.average(self.modale)
+
+   ###
    def get_layer(self, row):
       if row < 12:
          layer = 0
@@ -87,25 +161,8 @@ class DataProcessor(object):
          layer = 2
       return layer
 
-   def get_slop(self):
-      i = 0
-      for item in self.avg_c_v_d_ut:
-         if self.avg_v_z[i] != 0:
-            self.slop.append(item / self.avg_v_z[i])
-         else:
-            self.slop.append(0)
-         logger.info("item")
-         logger.info(item)
-         i += 1
-
-   def get_intercept(self):
-      i = 0
-      for item in self.avg_c_v_d_ut:
-         self.intercept[i] = item - (self.avg_z[i]) * (self.slop[i])
-         i += 1
-
    def filter_data(self, index,
-                   regex='([a-zA-Z]+ \[mm\]|\[rad\]|\(cylinder\))'):
+                   regex='([a-zA-Z]+ \[mm\]|\[rad\]|\(cylinder\)|ai)'):
       return self.dp.filter(regex=regex)
 
    @staticmethod
@@ -135,19 +192,29 @@ class DataProcessor(object):
       else:
          self.dp[str(col_name)] = data
 
-   def run(self):
+   def pre_calculation(self):
       self.get_avg_delta_ut()
       self.get_avg_var_delta_ut()
       self.get_avg_z()
       self.get_avg_v_z()
       self.get_avg_co_var_delta_ut()
       self.get_slop()
-      logger.info("slop")
-      logger.info(self.slop)
-      logger.info(len(self.slop))
-      # self.get_intercept()
-      # logger.info("intercept")
-      # logger.info(self.intercept)
+      self.get_intercept()
+      self.get_avg_m()
+      self.get_avg_a()
+      self.get_R2()
+      self.get_deformation()
+      self.get_interface()
+
+   def analyze_module(self):
+      self.get_F()
+      self.get_modale()
+      self.get_moyenne()
+      logger.info(self.moyenne)
+
+   def run(self):
+      self.pre_calculation()
+      self.analyze_module()
       return
 
 def main(args):
