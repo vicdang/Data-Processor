@@ -15,11 +15,12 @@ import logging
 import queue
 import sys
 import threading
-import time
+import json
+import utility as util
 
 from data_parser import DataParser
-# from data_processor import DataProcessor
-from data_processor_v2 import DataProcessor
+from data_processor import DataProcessor
+from data_analysis import DataAnalysis
 
 logger = logging.getLogger(__name__)
 
@@ -28,68 +29,95 @@ class WorkersHandler(object):
 
    def __init__(self, *args, **kwargs):
       super(WorkersHandler, self).__init__()
-      self.queue = queue.Queue()
       self.arg = kwargs.get('arg', None)
       self.tasks = kwargs.get('tasks', None)
-      self.workers = range(kwargs.get('workers', 10) - 1)
+      self.groups = kwargs.get('groups', None)
+      self.workers = range(kwargs.get('workers', 10))
+      self.deformations = {}
+      self.dt = None
 
-   def thread_func(self, q_item, thread_no):
+   def thread_func(self, q_item, thread_no, analysis=False):
       """
       Sub function for running tasks in parallel
       :param q_item: Queue items
       :param thread_no: Thread identifier
+      :param analysis: Analysis mode on or off
       """
       while True:
          task_item = q_item.get()
-         name = next(iter(task_item))
-         # dpc = DataProcessor(data=task_item[name])
-         dpc = DataProcessor(data=task_item[name])
-         logger.info(name)
-         dpc.run()
-         # time.sleep(1)
-         # logger.info(task_item[name])
-         # data = dpc.execute_calculate()
-         # data = dpc.split_by_frame()
-         # n = 0
-         # output = "output/img[%s].csv" % (name)
-         # DataParser.export_data(data, output)
-         # for i in data:
-         #    output = "output/img[%s]_R%s.csv" % (name, str(n))
-         #    DataParser.export_data(i, output)
-         #    n += 1
+         name = None
+         if not analysis:
+            name = next(iter(task_item))
+            dp = DataProcessor(data=task_item[name])
+            data = dp.run()
+            self.deformations.update({int(name.split(':')[-1]): dp.deformations})
+         else:
+            da = DataAnalysis(data=task_item)
+            data = da.run()
          q_item.task_done()
-         logger.debug('Thread [%s] is doing task [%s]...' % (str(thread_no),
+         logger.debug('Thread [%s] is doing [%s]...' % (str(thread_no),
                                                              str(name)))
 
-   def start_workers(self):
+   def start_workers(self, thread_func, q, workers=None, **kwargs):
       """
       Using to start workers
+      :param thread_func: Thread Functions
+      :param q: queue
+      :param workers: workers
       """
-      for worker in self.workers:
-         wk = threading.Thread(target=self.thread_func,
-                               args=(self.queue, worker,),
+      workers = workers if workers else self.workers
+      for worker in workers:
+         wk = threading.Thread(target=thread_func,
+                               args=(q, worker,
+                                     kwargs.get('analysis'), ),
                                daemon=True)
          wk.start()
 
-   def start_tasks(self, version=1):
+   @staticmethod
+   def start_tasks(q, tasks, analysis=False):
       """
       Using to start tasks
+      :param q: Queue
+      :param tasks: Tasks
+      :param analysis: analysis on or off
       """
-      if version == 1:
-         for k, v in self.tasks.items():
-            self.queue.put({k: v})
-      elif version == 2:
-         for k, v in self.tasks.items():
+      if analysis:
+         for k, v in tasks.items():
+            q.put({k: v})
+      else:
+         for k, v in tasks.items():
             for i in range(int(k.split(':')[0])):
-               self.queue.put({'%s:%s' % (k, i): v.loc[i]})
-      self.queue.join()
+               q.put({'%s:%s' % (k, i): v.loc[i]})
+      q.join()
+
+   def run_pre_calculation(self):
+      """
+      Run Pre calculation
+      """
+      q = queue.Queue()
+      self.start_workers(self.thread_func, q)
+      self.start_tasks(q, self.tasks, analysis=False)
+      self.dt = util.slice_data(self.deformations, self.groups)
+      if self.arg.debug:
+         with open("deformation.json", "w") as f:
+            f.write(json.dumps(self.deformations, indent=2))
+
+   def run_analysis(self):
+      """
+      Run analysis
+      """
+      q = queue.Queue()
+      # self.start_workers(self.thread_func, q, range(len(self.deformations)),
+      self.start_workers(self.thread_func, q, range(1),
+                         analysis=True)
+      self.start_tasks(q, self.dt, analysis=True)
 
    def run(self):
       """
       Executor
       """
-      self.start_workers()
-      self.start_tasks(self.arg.app_version)
+      self.run_pre_calculation()
+      self.run_analysis()
 
 def main(args):
    """

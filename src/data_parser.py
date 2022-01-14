@@ -61,9 +61,10 @@ class DataParser(object):
       logger.debug("Exported: %s" % file_name)
       data.to_csv(file_name, index=True, header=True, encoding='utf-8')
 
-   def slice_data(self):
+   def slice_data(self, analysis=False):
       """
       Using for slicing the data into multipe record-groups
+      :param analysis: analysis on for off
       """
       step = int(self.arg.group_count)
       groups = int(self.records_count / step) + 1
@@ -71,13 +72,13 @@ class DataParser(object):
       logger.debug("Total rows: %d - Slice: %d - Groups: %d" % (
          self.records_count, step, groups))
 
-      if self.arg.app_version == 1:
+      if analysis:
          for item in range(0, groups):
             i = step * item
             j = i + step - 1
             data = {"%s:%s-%s" % (self.records_count,
                                   i, j): self.data.loc[i:j, :]}
-      elif self.arg.app_version == 2:
+      else:
          data = {"%s:%s-%s" % (self.records_count,
                                0, self.records_count): self.data}
       if self.arg.verbose:

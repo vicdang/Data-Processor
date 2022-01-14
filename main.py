@@ -69,14 +69,6 @@ def add_args(parser, action='exec'):
                           default=150,
                           type=int,
                           help='Group records by index')
-      parser.add_argument('-r', '--records-number',
-                          default=10**6,
-                          type=int,
-                          help='Number of records')
-      parser.add_argument('--app-version',
-                          default=1,
-                          type=int,
-                          help='Version off app')
 
 def parse_cli():
    """
@@ -105,7 +97,8 @@ def main(argv):
    dp = DataParser(arg=argv)
    dp.run()
    tasks = dp.sliced_data
-   slave = WorkersHandler(arg=argv, tasks=tasks, workers=argv.worker_num)
+   slave = WorkersHandler(arg=argv, tasks=tasks, workers=argv.worker_num,
+                          groups=argv.group_count)
    slave.run()
    return
 

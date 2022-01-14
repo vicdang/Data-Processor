@@ -1,0 +1,81 @@
+AnalyzeModule:
+
+Deformation L0
+Deformation L2
+Deformation L1 = Interface
+Time (0 or 1)
+
+Dev1/ai3
+
+F = 200 * Dev1/ai3
+
+Deformation L0
+
+Modale = defend on (Deformation L0 or Deformation L1 or Deformation L2 or F)
+
+moyenne = AVG(modal) -> modal of img group
+f = 1 (Hz) => config
+Omega = 2 * PI * f
+
+x = modal - moyenne
+xsin = x * sin(Omega * time) => Xsin = Sum(xsin)-> sum by img group
+xcos = x * cos(Omega * time) => Xcos = Sum(xcos)
+
+sin2 = sin(Omega * time)^2 => Sin2 = sum(sin2)
+cos2 = cos(Omega * time)^2 => Cos2 = sum(cos2)
+
+sincos = sin(Omega * time) * cos(Omega * time) => SinCos = sum(sincos)
+
+A = (Xsin * Cos2 - Xcos * SinCos)/(Sin2 * Cos2 - SinCos^2)
+B = (Xcos * Sin2 - Xsin * SinCos)/(Sin2 * Cos2 - SinCos^2)
+
+x0 = SQRT(A^2 + B^2)
+phi = ATAN(B/A) * 180 / PI
+
+Approached signal 1 = A *  cos(Omega * time) + B * sin(Omega * time)
+Approached signal 2 = A *  sin(Omega * time) + B * cos(Omega * time)
+
+quality 1 = ABS(Approached signal 1 - x)/x0
+quality 2 = ABS(Approached signal 2 - x)/x0
+
+Quality = min(AVG(quality_1), AVG(quality_2)) * 100 -> group by imgs
+
+
+- modal => result
+
+L0 : x0
+     phi
+     Quality
+     AVG(time)
+     
+L1 : x0
+     phi
+     Quality
+     AVG(time)
+     
+L2 : x0
+     phi
+     Quality
+     AVG(time)
+     
+F : x0
+     phi
+     Quality
+     AVG(time)
+
+Rext = 0.086 => config
+Rint = 0.061 => config
+
+x0_Pressure = 3 * x0_F / (2 * PI * (Rext^3 - Rint^3)) / 10^6   
+
+G_L0 = x0_Pressure / x0_L0 * 10^6
+K_L1 = x0_Pressure / x0_L1 * 10^6
+G_L2 = x0_Pressure / x0_L2 * 10^6
+
+delay = 8.5 => config
+phi_G0 = if(phi_F - phi_L0 < 0, +180, keep) - delay
+phi_K1 = if(phi_F - phi_L1 < 0, +180, keep) - delay
+phi_G2 = if(phi_F - phi_L2 < 0, +180, keep) - delay
+
+L0              L1              L2              F               P   G0            K1       G2          time
+x0 phi Quality |x0 phi Quality |x0 phi Quality |x0 phi Quality |x0 |G0  phi_G0 | K1 phi_K1 |G2 phi_G2 | AVG(time) (groupby 150 pics)

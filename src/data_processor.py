@@ -13,13 +13,13 @@ Copyright (C) 2021
 """
 
 import logging
+import math
 import sys
-import re
-import copy
 
-import utility as util
 import numpy as np
 import pandas as pd
+
+import utility as util
 
 logger = logging.getLogger(__name__)
 
@@ -32,150 +32,193 @@ class DataProcessor(object):
       self.arg = kwargs.get('arg', None)
       data = kwargs.get('data', None)
       self.dp = pd.DataFrame(data)
-      self.d_ut = None
-      self.create_ut()
-      logger.info(self.d_ut)
       pd.set_option('display.max_columns', None)
+      self.avg_delta_uts = [0, 0, 0]
+      self.avg_variance_delta_uts = [0, 0, 0]
+      self.avg_co_variance_delta_uts = [0, 0, 0]
+      self.avg_variance_zs = [0, 0, 0]
+      self.avg_zs = 0
+      self.delta_uts = []
+      self.z = []
+      self.variance_delta_ut_temp = []
+      self.slops = []
+      self.intercepts = []
+      self.avg_ms = []
+      self.avg_as = []
+      self.R2s = []
+      self.deformations = []
+      self.interface = None
+      self.F = None
+      self.modales = []
+      self.moyenne = None
+      self.d_theta = self.dp
+      self.rect_count = self.conf.getint("general", "rect_count")
+      self.col_r = self.conf.get("general", "col_r")
+      self.col_z = self.conf.get("general", "col_z")
+      self.col_theta = self.conf.get("general", "col_theta")
+      self.time_field = self.conf.get("general", "time_field")
+      self.dev = self.conf.get("general", "dev")
+      self.F = float(self.dp.loc["%s" % self.dev])
+      self.time = float(self.dp.loc["%s" % self.time_field])
 
-   def create_ut(self):
-      d = {}
-      for i in range(25):
-         d.update({'d_ut_R%d' % i: []})
-      self.d_ut = pd.DataFrame(d)
-
-   def split_by_frame(self):
+   def get_avg_delta_uts(self):
       """
-      Split data into multiple frames
+      Used to get AVG(delta ut),
+      returns list of AVG(delta ut) by layer (L0, L1, L2)
+      """
+      ut0 = float(self.dp.loc['{col}.1'.format(col=str(self.col_r))])
+      for row in range(int(self.rect_count)):
+         t = self.dp.loc['%s.%d' % (self.col_theta, row + 1)]
+         r = self.dp.loc[('%s.%d' % (self.col_r, row + 1))]
+         u = float(t) * \
+             float(r) - ut0
+         self.delta_uts.append(u)
+      self.avg_delta_uts = self.get_avg(
+            [self.delta_uts[:12], self.delta_uts[12],
+             self.delta_uts[12:]])
+
+   def get_avg_variance_delta_uts(self):
+      """
+      Used to get AVG(variance delta ut),
+      returns list of AVG(variance delta ut) by layer (L0, L1, L2)
+      """
+      variance_delta_ut = []
+      for row in range(int(self.rect_count)):
+         var = self.delta_uts[row] - self.avg_delta_uts[self.get_layer(row)]
+         variance_delta_ut.append(var**2)
+         self.variance_delta_ut_temp.append(var)
+      self.avg_variance_delta_uts = self.get_avg(
+            [variance_delta_ut[:12], variance_delta_ut[12],
+             variance_delta_ut[12:]])
+
+   def get_avg_co_variance_delta_uts(self):
+      """
+      Used to get AVG(co variance delta ut),
+      returns list of AVG(co variance delta ut) by layer (L0, L1, L2)
+      """
+      co_variance_delta_ut = []
+      for row in range(int(self.rect_count)):
+         co_variance_delta_ut.append(
+               (self.variance_delta_ut_temp[row]) * (self.z[row] - self.avg_zs[
+                  self.get_layer(row)]))
+      self.avg_co_variance_delta_uts = self.get_avg(
+            [co_variance_delta_ut[:12], co_variance_delta_ut[12],
+             co_variance_delta_ut[12:]])
+
+   def get_avg_zs(self):
+      """
+      Used to get AVG(z), returns list of AVG(z) by layer (L0, L1, L2)
+      """
+      for row in range(int(self.rect_count)):
+         self.z.append(float(self.dp.loc['%s.%d' % (self.col_z, row + 1)]))
+      self.avg_zs = self.get_avg([self.z[:12], self.z[12], self.z[12:]])
+
+   def get_avg_variance_zs(self):
+      """
+      Used to get AVG(variance Z), returns list of AVG(variance Z) by layer
+      """
+      variance_z = []
+      for row in range(int(self.rect_count)):
+         variance_z.append((self.z[row] - self.avg_zs[self.get_layer(row)])**2)
+      self.avg_variance_zs = self.get_avg(
+            [variance_z[:12], variance_z[12], variance_z[12:]])
+
+   def get_avg_ms(self):
+      """
+      Used to get AVG(m), returns list of AVG(m) by layer (L0, L1, L2)
+      """
+      m = []
+      for row in range(int(self.rect_count)):
+         layer = self.get_layer(row)
+         m.append(self.slops[layer] * self.z[row] + self.intercepts[layer])
+      self.avg_ms = self.get_avg([m[:12], m[12], m[12:]])
+
+   def get_avg_as(self):
+      """
+      Used to get AVG(a), returns list of AVG(a) by layer (L0, L1, L2)
+      """
+      a = []
+      for row in range(int(self.rect_count)):
+         layer = self.get_layer(row)
+         a.append((self.slops[layer] * self.z[row] + self.intercepts[layer] -
+                   self.avg_ms[layer])**2)
+      self.avg_as = self.get_avg([a[:12], a[12], a[12:]])
+
+   # Normal calculations
+   def get_slops(self):
+      """
+      Used to get slop valuse, returns list of slop values by layer
+      """
+      i = 0
+      for avg_co_variance_delta_ut in self.avg_co_variance_delta_uts:
+         if self.avg_variance_zs[i] != 0:
+            self.slops.append(
+               avg_co_variance_delta_ut / self.avg_variance_zs[i])
+         else:
+            self.slops.append(0)
+         i += 1
+
+   def get_intercepts(self):
+      """
+      Used to get Intercept values, returns list of intercept values by layer
+      """
+      i = 0
+      for avg_co_variance_delta_ut in self.avg_co_variance_delta_uts:
+         self.intercepts.append(
+            avg_co_variance_delta_ut - (self.avg_zs[i]) * (self.slops[i]))
+         i += 1
+
+   def get_R2s(self):
+      """
+      Used to get the R^2 values, returns list of R^2 values by layer
+      """
+      i = 0
+      for a in self.avg_as:
+         self.R2s.append(a / self.avg_variance_delta_uts[i])
+
+   def get_deformations(self):
+      """
+      Used to get the deformation values, returns list of deformations by layer
+      """
+      for slop in self.slops:
+         self.deformations.append((slop * 10**6) / 2)
+
+   def get_interface(self):
+      """
+      Used to get the interface value
+      """
+      self.interface = ((self.slops[0] * self.z[12]) + self.intercepts[0]) - \
+                       ((self.slops[2] * self.z[12]) + self.intercepts[2])
+
+   # Basic calculations
+   @staticmethod
+   def get_layer(row):
+      """
+      Used to convert frame id to layer id
+      :param row:
       :return:
       """
-      data_arr = []
-      for i in range(int(self.conf.getint('general', 'rectangle_count'))):
-         i = '\.%d' % i
-         data = self.dp.filter(regex='([a-zA-Z ]+(\[mm\]|\[rad\]|\('
-                                       'cylinder\))[\.0-9]+)|d_ut')
-         # data = self.data
-         # data_arr.append(data.rename(columns=lambda x: re.sub(i, '', x)))
-         # data_arr.append(data)
-      # return data_arr
-      return self.dp
+      if row < 12:
+         layer = 0
+      elif row == 12:
+         layer = 1
+      else:
+         layer = 2
+      return layer
 
-   def execute_calculate(self):
-      data = None
-      self.exec_ut()
-      return data
-
-   def exec_ut(self):
-      self.add_col(["avg_d_ut_L0", "avg_d_ut_L2",
-                    "avg_var_d_ut_L0", "avg_var_d_ut_L2",
-                    "avg_covar_d_ut_L0", "avg_covar_d_ut_L2"])
-      for index, row in self.dp.iterrows():
-         avg_d_ut = self.get_avg_d_ut(index)
-         self.dp.loc[index,
-                     ["avg_d_ut_L0",
-                      "avg_d_ut_L1",
-                      "avg_d_ut_L2"]] = [avg_d_ut[0], avg_d_ut[1], avg_d_ut[2]]
-      for index, row in self.dp.iterrows():
-         avg_var_d_ut = self.get_avg_var_d_ut(index)
-         self.dp.loc[index,
-                     ["avg_var_d_ut_L0",
-                      "avg_var_d_ut_L1",
-                      "avg_var_d_ut_L2"]] = [avg_var_d_ut[0], avg_var_d_ut[1],
-                                             avg_var_d_ut[2]]
-
-      for index, row in self.dp.iterrows():
-         avg_covar_d_ut = self.get_avg_covar_d_ut(index)
-         self.dp.loc[index,
-                     ["avg_covar_d_ut_L0",
-                      "avg_covar_d_ut_L1",
-                      "avg_covar_d_ut_L2"]] = [avg_covar_d_ut[0],
-                                               avg_covar_d_ut[1],
-                                               avg_covar_d_ut[2]]
-
-
-   def get_avg_covar_d_ut(self, index):
-      covar_d_ut = self.get_covar_d_ut(index)
-      return self.get_avg(covar_d_ut)
-
-   def get_covar_d_ut(self, index):
-      covar_dut = []
-      layer = None
-      for i in range(25):
-         if i < 12:
-            layer = 0
-         elif i == 12:
-            layer = 1
-         else:
-            layer = 2
-         covar_dut.append(float(self.d_ut.loc[index, ['d_ut_R%d' % i]]) -
-                          float(self.dp.loc[index, ['avg_d_ut_L%d' % layer]]) *
-                  (float(self.dp.loc[index, ['Z [mm] (cylinder).%d' % (i+1)]]) -
-                   float(self.get_avg_z(index)[layer])))
-      return [covar_dut[:12], covar_dut[12], covar_dut[12:]]
-
-   def get_avg_var_d_ut(self, index):
-      var_d_ut = self.get_var_d_ut(index)
-      return self.get_avg(var_d_ut)
-
-   def get_var_d_ut(self, index):
-      var_dut = []
-      layer = None
-      for i in range(25):
-         if i < 12:
-            layer = 0
-         elif i == 12:
-            layer = 1
-         else:
-            layer = 2
-         var_dut.append(pow(float(self.d_ut.loc[index, ['d_ut_R%d' % i]]) -
-                            float(self.dp.loc[index, ['avg_d_ut_L%d' %
-                                                      layer]]), 2))
-      return [var_dut[:12], var_dut[12], var_dut[12:]]
-
-
-   def get_avg_z(self, index, reg_z='^Z \[mm\]\.[0-9]+$'):
-      z = self.get_z(index, self.filter_data(index, reg_z))
-      return self.get_avg(z)
-
-   def get_z(self, index, data):
-      z = []
-      for d in data:
-         z.append(float(d))
-      return [z[:12], z[12], z[12:]]
-
-   def get_avg_d_ut(self, index, reg_r='^R \[mm\]\.[0-9]+$',
-                    reg_d_theta='^dTheta \[rad\]\.[0-9]+$'):
-      d_ut = self.get_d_ut(index, self.filter_data(index, reg_r),
-                           self.filter_data(index, reg_d_theta))
-      return self.get_avg(d_ut)
-
-   def get_d_ut(self, index, r_mm, d_theta):
-      i = 0
-      dut = []
-      d = {}
-      for r in r_mm:
-         if i == 0:
-            v = r * d_theta[i]
-         else:
-            v = (r * d_theta[i]) - dut[0]
-         # d.update({'d_ut_R%d' % i : [v]})
-         self.d_ut.loc[index, ['d_ut_R%d' % i]] = v
-         dut.append(v)
-         i += 1
-      # self.d_ut.append(d)
-      return [dut[:12], dut[12], dut[12:]]
-
-   def filter_data(self, index,
-                   regex='([a-zA-Z]+ \[mm\]|\[rad\]|\(cylinder\))'):
-      return self.dp.iloc[index].filter(regex=regex)
-
-   def generate_delta(self, data):
-      pass
+   def filter_data(self, regex='([a-zA-Z]+ \[mm\]|\[rad\]|\(cylinder\)|ai)'):
+      """
+      Used to filter data col by regex string
+      :param regex: regex string to filter
+      :return:
+      """
+      return self.dp.filter(regex=regex)
 
    @staticmethod
    def get_avg(data):
       """
-      Average
-      :param data:
+      Used to get the average
+      :param data: income data
       :return:
       """
       if type(data) in [list, tuple, pd.Series]:
@@ -188,9 +231,9 @@ class DataProcessor(object):
 
    def add_col(self, col_name, data=""):
       """
-      Add new column(s) into the data
-      :param col_name:
-      :param data:
+      Used to add new column(s) into the data
+      :param col_name: column name
+      :param data: income data
       """
       if isinstance(col_name, list):
          for col in col_name:
@@ -200,10 +243,24 @@ class DataProcessor(object):
 
    def run(self):
       """
-      Executor
+      Main processing
       :return:
       """
-      return
+      self.get_avg_delta_uts()
+      self.get_avg_variance_delta_uts()
+      self.get_avg_zs()
+      self.get_avg_variance_zs()
+      self.get_avg_co_variance_delta_uts()
+      self.get_slops()
+      self.get_intercepts()
+      self.get_avg_ms()
+      self.get_avg_as()
+      self.get_R2s()
+      self.get_deformations()
+      self.get_interface()
+      self.deformations.append(self.F)
+      self.deformations.append(round(self.time, 3))
+      return self.deformations
 
 def main(args):
    """

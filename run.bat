@@ -1,3 +1,3 @@
 @echo off
-python .\main.py -d exec -g 100 -w 2 --app-version 2
+python .\main.py -d exec -g 70 -w 1
 pause

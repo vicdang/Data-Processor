@@ -1,0 +1,42 @@
+ut = R[mm] * dTheta
+
+delta UT = ut[R0-R24] - ut[0]
+
+AVG(deltaUT : L0) - R12 skipt - AVG(deltaUT : L2)
+
+variance_deltaUT = (dUT - AVG(dUT))^2
+
+=> AVG(variance_deltaUT: L0) - R12 skipt - AVG(variance_deltaUT : L2)
+
+covariance_deltaUT = (deltaUT - AVG(deltaUT)) * (Z[mm] (cylinder) - AVG(Z[mm] (cylinder): R0 - R11))
+=> AVG(covariance_deltaUT)
+
+variance_Z = (Z - AVG(Z))^2
+
+AVG(variance_Z)
+
+y = ax + b
+y = slop x + intercept
+
+slop = AVG(covariance_deltaUT)/AVG(variance_Z)
+
+intercept = AVG(variance_deltaUT)- AVG(Z)*slop
+
+m = slop * Z + intercept
+AVG(m)
+
+a = (slop * Z + intercept - AVG(m))^2
+AVG(a)
+
+R*2 = AVG(a) / AVG(variance_deltaUT)
+
+Deformation = (slope * 10^6)/2
+
+P1 : slope, intercept, R**2, Deformation
+
+
+
+R13 ---- deltaUT: R0
+
+Interface = ((slope_0 * Z(R12)) + intercept_0) - (slope_2 * Z(R12)) + intercept_2)
+
