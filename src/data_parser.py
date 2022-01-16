@@ -58,8 +58,21 @@ class DataParser(object):
       :param data: Data in
       :param file_name: Output file
       """
-      logger.debug("Exported: %s" % file_name)
-      data.to_csv(file_name, index=True, header=True, encoding='utf-8')
+      if type(data) in [list]:
+         res = pd.concat(data,
+                         axis=1,
+                         join="outer",
+                         ignore_index=False,
+                         keys=None,
+                         levels=3,
+                         names=None,
+                         verify_integrity=False,
+                         copy=True,
+                         sort=True,).transpose()
+      else:
+         res = data
+      logger.debug("Exporting: %s" % file_name)
+      res.to_csv(file_name, index=True, header=True, encoding='utf-8')
 
    def slice_data(self, analysis=False):
       """
@@ -85,22 +98,6 @@ class DataParser(object):
          logger.debug(data)
       self.sliced_data.update(data)
 
-   def clone_data(self):
-      """
-      Clone data for testing
-      :return:
-      """
-      total = int(self.arg.records_number)
-      if total > self.records_count:
-         # mul = [self.data] * int(total / self.records_count)
-         # mo = [self.data[:int(total % self.records_count)]]
-         # self.data.append(mul, ignore_index=True)
-         # self.data.append(mo, ignore_index=True)
-         # self.data.loc[self.data.index.repeat(self.data)].reset_index(
-         #       drop=True)
-         self.data = pd.concat([self.data] * int(total / self.records_count),
-                               ignore_index=True)
-
    def run(self):
       """
       Executor
@@ -110,8 +107,6 @@ class DataParser(object):
       data_02 = self.read_data(self.file_02, sep=';', index_col="Index [1]",
                                header=1)
       self.join_data([data_01, data_02])
-      if self.arg.test:
-         self.clone_data()
       self.slice_data()
 
 def main(args):

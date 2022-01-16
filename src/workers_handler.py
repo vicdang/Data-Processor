@@ -35,6 +35,7 @@ class WorkersHandler(object):
       self.workers = range(kwargs.get('workers', 10))
       self.deformations = {}
       self.dt = None
+      self.results = []
 
    def thread_func(self, q_item, thread_no, analysis=False):
       """
@@ -53,7 +54,8 @@ class WorkersHandler(object):
             self.deformations.update({int(name.split(':')[-1]): dp.deformations})
          else:
             da = DataAnalysis(data=task_item)
-            data = da.run()
+            name, data = da.run()
+            self.results.append(data)
          q_item.task_done()
          logger.debug('Thread [%s] is doing [%s]...' % (str(thread_no),
                                                              str(name)))
@@ -99,7 +101,7 @@ class WorkersHandler(object):
       self.start_tasks(q, self.tasks, analysis=False)
       self.dt = util.slice_data(self.deformations, self.groups)
       if self.arg.debug:
-         with open("deformation.json", "w") as f:
+         with open("./output/deformation.json", "w") as f:
             f.write(json.dumps(self.deformations, indent=2))
 
    def run_analysis(self):
@@ -107,10 +109,14 @@ class WorkersHandler(object):
       Run analysis
       """
       q = queue.Queue()
-      # self.start_workers(self.thread_func, q, range(len(self.deformations)),
-      self.start_workers(self.thread_func, q, range(1),
+      self.start_workers(self.thread_func, q, range(len(self.deformations)),
+      # self.start_workers(self.thread_func, q, range(1),
                          analysis=True)
       self.start_tasks(q, self.dt, analysis=True)
+      self.export_data()
+
+   def export_data(self):
+      DataParser.export_data(self.results, "./output/%s.csv" % 'result')
 
    def run(self):
       """

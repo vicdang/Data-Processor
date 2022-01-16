@@ -11,7 +11,7 @@ Copyright (C) 2021
    - data_analysis.py <options>
 
 """
-
+import json
 import logging
 import math
 import sys
@@ -34,12 +34,13 @@ class DataAnalysis(object):
       self.dp = None
       self.group = None
       self.f = self.conf.getint("analysis", "f")
-      self.Rext = self.conf.getfloat("analysis", "Rext")
-      self.Rint = self.conf.getfloat("analysis", "Rint")
+      self.rext = self.conf.getfloat("analysis", "Rext")
+      self.rint = self.conf.getfloat("analysis", "Rint")
       self.F_convert = self.conf.getint("analysis", "F_convert")
       self.delay = self.conf.getfloat("analysis", "delay")
       self.omega = 2 * math.pi * float(self.f)
       self.result = {}
+      self.final_result = {}
 
    def get_data(self):
       self.group, self.dp = list(self.data.items())[0]
@@ -59,8 +60,7 @@ class DataAnalysis(object):
          times.append(modal[4])
       return defor_L0, defor_L1, defor_L2, defor_F, times
 
-
-   def cal(self, modales, time):
+   def cal(self, k, modales, time):
       moyenne = np.average(modales)
       x_arr = []
       xsin = []
@@ -98,8 +98,51 @@ class DataAnalysis(object):
          quality_2.append(abs(approached_signal_1 - x) / x0)
       Quality = min(np.average(quality_1), np.average(quality_2)) * 100
 
-      return {"x0": x0, "phi": phi, "Quality": Quality, "time": time}
+      # return {"x0": x0, "phi": phi, "Quality": Quality, "time": time}
+      return {"x0": x0, "phi": phi, "Quality": Quality}
 
+   def cal_data(self, data):
+      key = ["L0", "L1", "L2", "F"]
+      for k in key:
+         self.result.update({k: self.cal(k, data[key.index(k)],
+                                         np.average(data[-1]))})
+      self.result.update({'time': np.average(data[-1])})
+
+   def cal_pressure(self):
+      x0_pressure = (3 * self.result['F']['x0']) / (2 * math.pi * (
+            self.rext**3 - self.rint**3)) / 10**6
+      self.result.update({'P': {'x0': x0_pressure}})
+      try:
+         G_L0 = x0_pressure / self.result['L0']['x0'] * 10**6
+      except ZeroDivisionError:
+         G_L0 = 0
+      try:
+         K_L1 = x0_pressure / self.result['L1']['x0'] * 10**6
+      except ZeroDivisionError:
+         K_L1 = 0
+      try:
+         G_L2 = x0_pressure / self.result['L2']['x0'] * 10**6
+      except ZeroDivisionError:
+         G_L2 = 0
+      phi_F = self.result['F']['phi']
+      phi_G0 = phi_F - self.result['L0']['phi']
+      if phi_G0 < 0:
+         phi_G0 += 180
+      phi_G0 -= self.delay
+      phi_K1 = phi_F - self.result['L1']['phi']
+      if phi_K1 < 0:
+         phi_K1 += 180
+      phi_K1 -= self.delay
+      phi_G2 = phi_F - self.result['L2']['phi']
+      if phi_G2 < 0:
+         phi_G2 += 180
+      phi_G2 -= self.delay
+      self.result.update({'G_L0': {'G0': G_L0,
+                                   'phi_G0': phi_G0},
+                          'K_L1': {'K1': K_L1,
+                                   'phi_K1': phi_K1},
+                          'G_L2': {'G2': G_L2,
+                                   'phi_G2': phi_G2}})
 
    def run(self):
       """
@@ -107,12 +150,15 @@ class DataAnalysis(object):
       :return:
       """
       data = self.prepare_data()
-      key = ["L0", "L1", "L2", "F"]
-      for k in key:
-         self.result.update({"k": self.cal(data[key.index(k)],
-                                           np.average(data[ -1]))})
-      logger.info(self.result)
-      return self.result
+      self.cal_data(data)
+      self.cal_pressure()
+      self.final_result.update({self.group: self.result})
+      logger.debug(json.dumps(self.final_result, indent=3))
+      res = pd.DataFrame.from_dict(self.final_result)
+      # res = pd.DataFrame(dict([(col_name,
+      #                           pd.Series(values)) for col_name, values in
+      #                           self.final_result.items()]))
+      return self.group, res
 
 def main(args):
    """
