@@ -99,7 +99,7 @@ class DataAnalysis(object):
       Quality = min(np.average(quality_1), np.average(quality_2)) * 100
 
       # return {"x0": x0, "phi": phi, "Quality": Quality, "time": time}
-      return {"x0": x0, "phi": phi, "Quality": Quality}
+      return {"Amplitude": x0, "phi": phi, "Quality (%)": Quality}
 
    def cal_data(self, data):
       key = ["L0", "L1", "L2", "F"]
@@ -109,19 +109,19 @@ class DataAnalysis(object):
       self.result.update({'time': np.average(data[-1])})
 
    def cal_pressure(self):
-      x0_pressure = (3 * self.result['F']['x0']) / (2 * math.pi * (
+      x0_pressure = (3 * self.result['F']['Amplitude']) / (2 * math.pi * (
             self.rext**3 - self.rint**3)) / 10**6
-      self.result.update({'P': {'x0': x0_pressure}})
+      self.result.update({'P': {'Amplitude': x0_pressure}})
       try:
-         G_L0 = x0_pressure / self.result['L0']['x0'] * 10**6
+         G_L0 = x0_pressure / self.result['L0']['Amplitude'] * 10**6
       except ZeroDivisionError:
          G_L0 = 0
       try:
-         K_L1 = x0_pressure / self.result['L1']['x0'] * 10**6
+         K_L1 = x0_pressure / self.result['L1']['Amplitude'] * 10**6
       except ZeroDivisionError:
          K_L1 = 0
       try:
-         G_L2 = x0_pressure / self.result['L2']['x0'] * 10**6
+         G_L2 = x0_pressure / self.result['L2']['Amplitude'] * 10**6
       except ZeroDivisionError:
          G_L2 = 0
       phi_F = self.result['F']['phi']

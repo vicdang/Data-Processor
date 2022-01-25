@@ -104,7 +104,7 @@ class DataParser(object):
       """
       data_01 = self.read_data(self.file_01, sep=',', index_col="Count",
                                header=0)
-      data_02 = self.read_data(self.file_02, sep=';', index_col="Index [1]",
+      data_02 = self.read_data(self.file_02, sep=',', index_col="Index [1]",
                                header=1)
       self.join_data([data_01, data_02])
       self.slice_data()

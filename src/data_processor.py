@@ -58,7 +58,7 @@ class DataProcessor(object):
       self.col_theta = self.conf.get("general", "col_theta")
       self.time_field = self.conf.get("general", "time_field")
       self.dev = self.conf.get("general", "dev")
-      self.F = float(self.dp.loc["%s" % self.dev])
+      self.F = float(self.dp.loc["%s" % self.dev]) * 200
       self.time = float(self.dp.loc["%s" % self.time_field])
 
    def get_avg_delta_uts(self):
