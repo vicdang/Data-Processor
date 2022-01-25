@@ -35,7 +35,7 @@ class WorkersHandler(object):
       self.workers = range(kwargs.get('workers', 10))
       self.deformations = {}
       self.dt = None
-      self.results = []
+      self.results = {}
 
    def thread_func(self, q_item, thread_no, analysis=False):
       """
@@ -56,7 +56,7 @@ class WorkersHandler(object):
          else:
             da = DataAnalysis(data=task_item)
             name, data = da.run()
-            self.results.append(data)
+            self.results.update({name: data})
          q_item.task_done()
          logger.debug('Thread [%s] is doing [%s]...' % (str(thread_no),
                                                              str(name)))
@@ -117,7 +117,10 @@ class WorkersHandler(object):
       self.export_data()
 
    def export_data(self):
-      DataParser.export_data(self.results, "./output/%s.csv" % 'result')
+      """
+      Used to export data
+      """
+      DataParser.export_data(self.results, "./output/")
 
    def run(self):
       """

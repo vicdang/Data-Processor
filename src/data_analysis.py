@@ -42,25 +42,36 @@ class DataAnalysis(object):
       self.final_result = {}
 
    def get_data(self):
+      """
+      Used to get data
+      """
       self.group, self.dp = list(self.data.items())[0]
 
    def prepare_data(self):
+      """
+      Used to prepare data
+      """
       self.get_data()
-      defor_L0 = []
-      defor_L1 = []
-      defor_L2 = []
-      defor_F = []
+      defor_l0 = []
+      defor_l1 = []
+      defor_l2 = []
+      defor_f = []
       times = []
       for _, modal in self.dp.items():
-         defor_L0.append(modal[0])
-         defor_L1.append(modal[1])
-         defor_L2.append(modal[2])
-         defor_F.append(modal[3])
+         defor_l0.append(modal[0])
+         defor_l1.append(modal[1])
+         defor_l2.append(modal[2])
+         defor_f.append(modal[3])
          times.append(modal[4])
-      return defor_L0, defor_L1, defor_L2, defor_F, times
+      return defor_l0, defor_l1, defor_l2, defor_f, times
 
-   def cal(self, k, modales, times):
-      avg_time = np.average(times)
+   def calculation(self, modales, times):
+      """
+      Used to calculate
+      :param modales: data of modales
+      :param times: times
+      :return:
+      """
       moyenne = np.average(modales)
       x_arr = []
       xsin = []
@@ -81,23 +92,23 @@ class DataAnalysis(object):
          cos2.append(pow(cos_mt, 2))
          sincos.append(sin_mt * cos_mt)
          i += 1
-      Xsin = sum(xsin)
-      Xcos = sum(xcos)
-      Sin2 = sum(sin2)
-      Cos2 = sum(cos2)
-      SinCos = sum(sincos)
-      A = (Xsin * Cos2 - Xcos * SinCos) / (Sin2 * Cos2 - pow(SinCos, 2))
-      B = (Xcos * Sin2 - Xsin * SinCos) / (Sin2 * Cos2 - pow(SinCos, 2))
-      x0 = math.sqrt(pow(A, 2) + pow(B, 2))
-      phi = math.atan(B / A) * 180 / math.pi
+      x_sin = sum(xsin)
+      x_cos = sum(xcos)
+      sin_2 = sum(sin2)
+      cos_2 = sum(cos2)
+      sin_cos = sum(sincos)
+      a = (x_sin * cos_2 - x_cos * sin_cos) / (sin_2 * cos_2 - pow(sin_cos, 2))
+      b = (x_cos * sin_2 - x_sin * sin_cos) / (sin_2 * cos_2 - pow(sin_cos, 2))
+      x0 = math.sqrt(pow(a, 2) + pow(b, 2))
+      phi = math.atan(b / a) * 180 / math.pi
       approached_signal_1 = []
       approached_signal_2 = []
       for t in times:
          mt = self.omega * t
          sin_mt = math.sin(mt)
          cos_mt = math.cos(mt)
-         approached_signal_1.append((A * cos_mt) + (B * sin_mt))
-         approached_signal_2.append((A * sin_mt) + (B * cos_mt))
+         approached_signal_1.append((a * cos_mt) + (b * sin_mt))
+         approached_signal_2.append((a * sin_mt) + (b * cos_mt))
 
       quality_1 = []
       quality_2 = []
@@ -106,51 +117,59 @@ class DataAnalysis(object):
          quality_1.append(abs(approached_signal_1[i] - x) / x0)
          quality_2.append(abs(approached_signal_2[i] - x) / x0)
          i += 1
-      Quality = min(np.average(quality_1), np.average(quality_2)) * 100
+      quality_fin = min(np.average(quality_1), np.average(quality_2)) * 100
 
-      return {"Amplitude": x0, "phi": phi, "Quality (%)": Quality}
+      return {"Amplitude": x0, "phi": phi, "Quality (%)": quality_fin}
 
    def cal_data(self, data):
-      key = ["L0", "L1", "L2", "F"]
+      """
+      Used to calculate data in
+      :param data: data in
+      """
+      key = ["Ezz_bas", "Delta_uz", "Ezz_haut", "Charge"]
       for k in key:
-         self.result.update({k: self.cal(k, data[key.index(k)], data[-1])})
+         self.result.update({k: self.calculation(data[key.index(k)],
+                                                 data[-1])})
       self.result.update({'time': np.average(data[-1])})
 
    def cal_pressure(self):
-      x0_pressure = (3 * self.result['F']['Amplitude']) / (2 * math.pi * (
+      """
+      Used to calculate the pressure
+      """
+      x0_pressure = (3 * self.result['Charge']['Amplitude']) / (2 * math.pi * (
             self.rext**3 - self.rint**3)) / 10**6
       self.result.update({'P': {'Amplitude': x0_pressure}})
       try:
-         G_L0 = x0_pressure / self.result['L0']['Amplitude'] * 10**6
+         g_l0 = x0_pressure / self.result['Ezz_bas']['Amplitude'] * 10**6
       except ZeroDivisionError:
-         G_L0 = 0
+         g_l0 = 0
       try:
-         K_L1 = x0_pressure / self.result['L1']['Amplitude'] * 10**6
+         k_l1 = x0_pressure / self.result['Delta_uz']['Amplitude'] * 10**6
       except ZeroDivisionError:
-         K_L1 = 0
+         k_l1 = 0
       try:
-         G_L2 = x0_pressure / self.result['L2']['Amplitude'] * 10**6
+         g_l2 = x0_pressure / self.result['Ezz_haut']['Amplitude'] * 10**6
       except ZeroDivisionError:
-         G_L2 = 0
-      phi_F = self.result['F']['phi']
-      phi_G0 = phi_F - self.result['L0']['phi']
-      if phi_G0 < 0:
-         phi_G0 += 180
-      phi_G0 -= self.delay
-      phi_K1 = phi_F - self.result['L1']['phi']
-      if phi_K1 < 0:
-         phi_K1 += 180
-      phi_K1 -= self.delay
-      phi_G2 = phi_F - self.result['L2']['phi']
-      if phi_G2 < 0:
-         phi_G2 += 180
-      phi_G2 -= self.delay
-      self.result.update({'G_L0': {'G0': G_L0,
-                                   'phi_G0': phi_G0},
-                          'K_L1': {'K1': K_L1,
-                                   'phi_K1': phi_K1},
-                          'G_L2': {'G2': G_L2,
-                                   'phi_G2': phi_G2}})
+         g_l2 = 0
+      phi_f = self.result['Charge']['phi']
+      phi_g0 = phi_f - self.result['Ezz_bas']['phi']
+      if phi_g0 < 0:
+         phi_g0 += 180
+      phi_g0 -= self.delay
+      phi_k1 = phi_f - self.result['Delta_uz']['phi']
+      if phi_k1 < 0:
+         phi_k1 += 180
+      phi_k1 -= self.delay
+      phi_g2 = phi_f - self.result['Ezz_haut']['phi']
+      if phi_g2 < 0:
+         phi_g2 += 180
+      phi_g2 -= self.delay
+      self.result.update({'G0': {'value': g_l0,
+                                 'phi': phi_g0},
+                          'K1': {'value': k_l1,
+                                 'phi': phi_k1},
+                          'G2': {'value': g_l2,
+                                 'phi': phi_g2}})
 
    def run(self):
       """
@@ -162,7 +181,7 @@ class DataAnalysis(object):
       self.cal_pressure()
       self.final_result.update({self.group: self.result})
       logger.debug(json.dumps(self.final_result, indent=3))
-      res = pd.DataFrame.from_dict(self.final_result)
+      res = pd.DataFrame.from_dict(self.result)
       # res = pd.DataFrame(dict([(col_name,
       #                           pd.Series(values)) for col_name, values in
       #                           self.final_result.items()]))

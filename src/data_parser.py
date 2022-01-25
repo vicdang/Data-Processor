@@ -52,27 +52,40 @@ class DataParser(object):
       self.records_count = int(self.data.shape[0])
 
    @staticmethod
-   def export_data(data, file_name):
+   def export_data(data, file_name, concat=False):
       """
       Using to export the data into file
+      :param concat:
       :param data: Data in
       :param file_name: Output file
       """
-      if type(data) in [list]:
-         res = pd.concat(data,
-                         axis=1,
-                         join="outer",
-                         ignore_index=False,
-                         keys=None,
-                         levels=3,
-                         names=None,
-                         verify_integrity=False,
-                         copy=True,
-                         sort=True,).transpose()
+      f_n = '%s/%s.csv' % (file_name, 'result')
+      if type(data) in [dict]:
+         if concat:
+            res = pd.concat(data,
+                            axis=1,
+                            join="outer",
+                            ignore_index=False,
+                            keys=None,
+                            levels=3,
+                            names=None,
+                            verify_integrity=False,
+                            copy=True,
+                            sort=True,).transpose()
+            logger.debug("Exporting: %s" % f_n)
+            res.to_csv(f_n, index=True, header=True, encoding='utf-8')
+         else:
+            for k, v in data.items():
+               f_n = '%s/result_%s.csv' % (file_name, k)
+               logger.debug("Exporting: %s" % f_n)
+               v.transpose().to_csv(f_n,
+                                    index=True,
+                                    header=True,
+                                    encoding='utf-8')
       else:
-         res = data
-      logger.debug("Exporting: %s" % file_name)
-      res.to_csv(file_name, index=True, header=True, encoding='utf-8')
+         logger.debug("Exporting: %s" % f_n)
+         data.to_csv(f_n, index=True, header=True, encoding='utf-8')
+
 
    def slice_data(self, analysis=False):
       """
