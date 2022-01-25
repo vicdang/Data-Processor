@@ -11,7 +11,7 @@ Copyright (C) 2021
    - data_processor.py <options>
 
 """
-
+import json
 import logging
 import math
 import sys
@@ -31,13 +31,14 @@ class DataProcessor(object):
       super(DataProcessor, self).__init__()
       self.arg = kwargs.get('arg', None)
       data = kwargs.get('data', None)
+      self.name = kwargs.get('name', None)
       self.dp = pd.DataFrame(data)
       pd.set_option('display.max_columns', None)
       self.avg_delta_uts = [0, 0, 0]
       self.avg_variance_delta_uts = [0, 0, 0]
       self.avg_co_variance_delta_uts = [0, 0, 0]
       self.avg_variance_zs = [0, 0, 0]
-      self.avg_zs = 0
+      self.avg_zs = []
       self.delta_uts = []
       self.z = []
       self.variance_delta_ut_temp = []
@@ -55,10 +56,11 @@ class DataProcessor(object):
       self.rect_count = self.conf.getint("general", "rect_count")
       self.col_r = self.conf.get("general", "col_r")
       self.col_z = self.conf.get("general", "col_z")
-      self.col_theta = self.conf.get("general", "col_theta")
+      self.col_dtheta = self.conf.get("general", "col_dtheta")
       self.time_field = self.conf.get("general", "time_field")
       self.dev = self.conf.get("general", "dev")
-      self.F = float(self.dp.loc["%s" % self.dev]) * 200
+      self.F_convert = self.conf.getint("analysis", "F_convert")
+      self.F = float(self.dp.loc["%s" % self.dev]) * self.F_convert
       self.time = float(self.dp.loc["%s" % self.time_field])
 
    def get_avg_delta_uts(self):
@@ -68,8 +70,10 @@ class DataProcessor(object):
       """
       ut0 = float(self.dp.loc['{col}.1'.format(col=str(self.col_r))])
       for row in range(int(self.rect_count)):
-         t = self.dp.loc['%s.%d' % (self.col_theta, row + 1)]
+         t = self.dp.loc['%s.%d' % (self.col_dtheta, row + 1)]
          r = self.dp.loc[('%s.%d' % (self.col_r, row + 1))]
+         if row == 0:
+            ut0 = 0
          u = float(t) * \
              float(r) - ut0
          self.delta_uts.append(u)
@@ -83,9 +87,12 @@ class DataProcessor(object):
       returns list of AVG(variance delta ut) by layer (L0, L1, L2)
       """
       variance_delta_ut = []
+      v = []
       for row in range(int(self.rect_count)):
-         var = self.delta_uts[row] - self.avg_delta_uts[self.get_layer(row)]
-         variance_delta_ut.append(var**2)
+         u = self.delta_uts[row]
+         du = self.avg_delta_uts[self.get_layer(row)]
+         var = u - du
+         variance_delta_ut.append(pow(var, 2))
          self.variance_delta_ut_temp.append(var)
       self.avg_variance_delta_uts = self.get_avg(
             [variance_delta_ut[:12], variance_delta_ut[12],
@@ -163,9 +170,9 @@ class DataProcessor(object):
       Used to get Intercept values, returns list of intercept values by layer
       """
       i = 0
-      for avg_co_variance_delta_ut in self.avg_co_variance_delta_uts:
+      for avg_delta_ut in self.avg_delta_uts:
          self.intercepts.append(
-            avg_co_variance_delta_ut - (self.avg_zs[i]) * (self.slops[i]))
+            avg_delta_ut - (self.avg_zs[i] * self.slops[i]))
          i += 1
 
    def get_R2s(self):
@@ -181,7 +188,7 @@ class DataProcessor(object):
       Used to get the deformation values, returns list of deformations by layer
       """
       for slop in self.slops:
-         self.deformations.append((slop * 10**6) / 2)
+         self.deformations.append((slop * pow(10, 6)) / 2)
 
    def get_interface(self):
       """
@@ -258,6 +265,8 @@ class DataProcessor(object):
       self.get_R2s()
       self.get_deformations()
       self.get_interface()
+      logger.info(self.interface)
+      self.deformations[1] = self.interface
       self.deformations.append(self.F)
       self.deformations.append(round(self.time, 3))
       return self.deformations

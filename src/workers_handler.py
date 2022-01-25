@@ -49,7 +49,8 @@ class WorkersHandler(object):
          name = None
          if not analysis:
             name = next(iter(task_item))
-            dp = DataProcessor(data=task_item[name])
+            dp = DataProcessor(data=task_item[name],
+                               name=int(name.split(':')[-1]))
             data = dp.run()
             self.deformations.update({int(name.split(':')[-1]): dp.deformations})
          else:
@@ -102,7 +103,7 @@ class WorkersHandler(object):
       self.dt = util.slice_data(self.deformations, self.groups)
       if self.arg.debug:
          with open("./output/deformation.json", "w") as f:
-            f.write(json.dumps(self.deformations, indent=2))
+            f.write(json.dumps(self.deformations, indent=2, sort_keys=True))
 
    def run_analysis(self):
       """

@@ -20,7 +20,7 @@ y = slop x + intercept
 
 slop = AVG(covariance_deltaUT)/AVG(variance_Z)
 
-intercept = AVG(variance_deltaUT)- AVG(Z)*slop
+intercept = AVG(deltaUT)- AVG(Z)*slop
 
 m = slop * Z + intercept
 AVG(m)

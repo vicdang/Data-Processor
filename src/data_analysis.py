@@ -36,7 +36,6 @@ class DataAnalysis(object):
       self.f = self.conf.getint("analysis", "f")
       self.rext = self.conf.getfloat("analysis", "Rext")
       self.rint = self.conf.getfloat("analysis", "Rint")
-      self.F_convert = self.conf.getint("analysis", "F_convert")
       self.delay = self.conf.getfloat("analysis", "delay")
       self.omega = 2 * math.pi * float(self.f)
       self.result = {}
@@ -56,11 +55,12 @@ class DataAnalysis(object):
          defor_L0.append(modal[0])
          defor_L1.append(modal[1])
          defor_L2.append(modal[2])
-         defor_F.append(modal[3] * self.F_convert)
+         defor_F.append(modal[3])
          times.append(modal[4])
       return defor_L0, defor_L1, defor_L2, defor_F, times
 
-   def cal(self, k, modales, time):
+   def cal(self, k, modales, times):
+      avg_time = np.average(times)
       moyenne = np.average(modales)
       x_arr = []
       xsin = []
@@ -68,44 +68,52 @@ class DataAnalysis(object):
       sin2 = []
       cos2 = []
       sincos = []
-      mt = self.omega * time
-      sin_mt = math.sin(mt)
-      cos_mt = math.cos(mt)
+      i = 0
       for modal in modales:
          x = modal - moyenne
+         mt = self.omega * times[i]
+         sin_mt = math.sin(mt)
+         cos_mt = math.cos(mt)
          x_arr.append(x)
          xsin.append(x * sin_mt)
          xcos.append(x * cos_mt)
-         sin2.append(sin_mt**2)
-         cos2.append(cos_mt**2)
+         sin2.append(pow(sin_mt, 2))
+         cos2.append(pow(cos_mt, 2))
          sincos.append(sin_mt * cos_mt)
+         i += 1
       Xsin = sum(xsin)
       Xcos = sum(xcos)
       Sin2 = sum(sin2)
       Cos2 = sum(cos2)
       SinCos = sum(sincos)
-      A = (Xsin * Cos2 - Xcos * SinCos) / (Sin2 * Cos2 - SinCos**2)
-      B = (Xcos * Sin2 - Xsin * SinCos) / (Sin2 * Cos2 - SinCos**2)
-      x0 = math.sqrt(A**2 + B**2)
+      A = (Xsin * Cos2 - Xcos * SinCos) / (Sin2 * Cos2 - pow(SinCos, 2))
+      B = (Xcos * Sin2 - Xsin * SinCos) / (Sin2 * Cos2 - pow(SinCos, 2))
+      x0 = math.sqrt(pow(A, 2) + pow(B, 2))
       phi = math.atan(B / A) * 180 / math.pi
-      approached_signal_1 = A * cos_mt + B * sin_mt
-      approached_signal_1 = A * sin_mt + B * cos_mt
+      approached_signal_1 = []
+      approached_signal_2 = []
+      for t in times:
+         mt = self.omega * t
+         sin_mt = math.sin(mt)
+         cos_mt = math.cos(mt)
+         approached_signal_1.append((A * cos_mt) + (B * sin_mt))
+         approached_signal_2.append((A * sin_mt) + (B * cos_mt))
 
       quality_1 = []
       quality_2 = []
+      i = 0
       for x in x_arr:
-         quality_1.append(abs(approached_signal_1 - x) / x0)
-         quality_2.append(abs(approached_signal_1 - x) / x0)
+         quality_1.append(abs(approached_signal_1[i] - x) / x0)
+         quality_2.append(abs(approached_signal_2[i] - x) / x0)
+         i += 1
       Quality = min(np.average(quality_1), np.average(quality_2)) * 100
 
-      # return {"x0": x0, "phi": phi, "Quality": Quality, "time": time}
       return {"Amplitude": x0, "phi": phi, "Quality (%)": Quality}
 
    def cal_data(self, data):
       key = ["L0", "L1", "L2", "F"]
       for k in key:
-         self.result.update({k: self.cal(k, data[key.index(k)],
-                                         np.average(data[-1]))})
+         self.result.update({k: self.cal(k, data[key.index(k)], data[-1])})
       self.result.update({'time': np.average(data[-1])})
 
    def cal_pressure(self):
