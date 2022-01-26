@@ -144,7 +144,7 @@ class DataAnalysis(object):
       except ZeroDivisionError:
          g_l0 = 0
       try:
-         k_l1 = x0_pressure / self.result['Delta_uz']['Amplitude'] * 10**6
+         k_l1 = x0_pressure / self.result['Delta_uz']['Amplitude']
       except ZeroDivisionError:
          k_l1 = 0
       try:
@@ -182,9 +182,6 @@ class DataAnalysis(object):
       self.final_result.update({self.group: self.result})
       logger.debug(json.dumps(self.final_result, indent=3))
       res = pd.DataFrame.from_dict(self.result)
-      # res = pd.DataFrame(dict([(col_name,
-      #                           pd.Series(values)) for col_name, values in
-      #                           self.final_result.items()]))
       return self.group, res
 
 def main(args):
