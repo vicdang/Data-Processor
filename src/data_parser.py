@@ -52,9 +52,10 @@ class DataParser(object):
       self.records_count = int(self.data.shape[0])
 
    @staticmethod
-   def export_data(data, file_name, concat=False):
+   def export_data(data, file_name, concat=False, transpose=False):
       """
       Using to export the data into file
+      :param transpose:
       :param concat:
       :param data: Data in
       :param file_name: Output file
@@ -64,16 +65,18 @@ class DataParser(object):
          if concat:
             res = pd.concat(data,
                             axis=1,
-                            join="outer",
-                            ignore_index=False,
+                            join="inner",
+                            ignore_index=True,
                             keys=None,
-                            levels=3,
+                            levels=1,
                             names=None,
                             verify_integrity=False,
                             copy=True,
-                            sort=True,).transpose()
+                            sort=True,)
+            if transpose:
+               res = res.transpose()
             logger.debug("Exporting: %s" % f_n)
-            res.to_csv(f_n, index=True, header=True, encoding='utf-8')
+            res.to_csv(f_n, index=False, header=True, encoding='utf-8')
          else:
             for k, v in data.items():
                f_n = '%s/result_%s.csv' % (file_name, k)

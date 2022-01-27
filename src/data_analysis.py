@@ -65,7 +65,7 @@ class DataAnalysis(object):
          times.append(modal[4])
       return defor_l0, defor_l1, defor_l2, defor_f, times
 
-   def calculation(self, modales, times):
+   def calculation(self, k, modales, times):
       """
       Used to calculate
       :param modales: data of modales
@@ -119,7 +119,9 @@ class DataAnalysis(object):
          i += 1
       quality_fin = min(np.average(quality_1), np.average(quality_2)) * 100
 
-      return {"Amplitude": x0, "phi": phi, "Quality (%)": quality_fin}
+      return {"%s" % k: x0,
+              "%s_Phi" % k: phi,
+              "%s_Quality" % k: quality_fin}
 
    def cal_data(self, data):
       """
@@ -127,49 +129,47 @@ class DataAnalysis(object):
       :param data: data in
       """
       key = ["Ezz_bas", "Delta_uz", "Ezz_haut", "Charge"]
+      self.result.update({'ATime': np.average(data[-1])})
+      self.result.update({'AGroup': self.group})
       for k in key:
-         self.result.update({k: self.calculation(data[key.index(k)],
-                                                 data[-1])})
-      self.result.update({'time': np.average(data[-1])})
+         self.result.update(self.calculation(k, data[key.index(k)],
+                                             data[-1]))
 
    def cal_pressure(self):
       """
       Used to calculate the pressure
       """
-      x0_pressure = (3 * self.result['Charge']['Amplitude']) / (2 * math.pi * (
+      x0_pressure = (3 * self.result['Charge']) / (2 * math.pi * (
             self.rext**3 - self.rint**3)) / 10**6
-      self.result.update({'P': {'Amplitude': x0_pressure}})
+      self.result.update({'P': x0_pressure})
       try:
-         g_l0 = x0_pressure / self.result['Ezz_bas']['Amplitude'] * 10**6
+         g_l0 = x0_pressure / self.result['Ezz_bas'] * 10**6
       except ZeroDivisionError:
          g_l0 = 0
       try:
-         k_l1 = x0_pressure / self.result['Delta_uz']['Amplitude']
+         k_l1 = x0_pressure / self.result['Delta_uz']
       except ZeroDivisionError:
          k_l1 = 0
       try:
-         g_l2 = x0_pressure / self.result['Ezz_haut']['Amplitude'] * 10**6
+         g_l2 = x0_pressure / self.result['Ezz_haut'] * 10**6
       except ZeroDivisionError:
          g_l2 = 0
-      phi_f = self.result['Charge']['phi']
-      phi_g0 = phi_f - self.result['Ezz_bas']['phi']
+      phi_f = self.result['Charge_Phi']
+      phi_g0 = phi_f - self.result['Ezz_bas_Phi']
       if phi_g0 < 0:
          phi_g0 += 180
       phi_g0 -= self.delay
-      phi_k1 = phi_f - self.result['Delta_uz']['phi']
+      phi_k1 = phi_f - self.result['Delta_uz_Phi']
       if phi_k1 < 0:
          phi_k1 += 180
       phi_k1 -= self.delay
-      phi_g2 = phi_f - self.result['Ezz_haut']['phi']
+      phi_g2 = phi_f - self.result['Ezz_haut_Phi']
       if phi_g2 < 0:
          phi_g2 += 180
       phi_g2 -= self.delay
-      self.result.update({'G0': {'value': g_l0,
-                                 'phi': phi_g0},
-                          'K1': {'value': k_l1,
-                                 'phi': phi_k1},
-                          'G2': {'value': g_l2,
-                                 'phi': phi_g2}})
+      self.result.update({'G0': g_l0, 'G0_Phi': phi_g0,
+                          'K1': k_l1, 'K1_Phi': phi_k1,
+                          'G2': g_l2, 'G2_Phi': phi_g2})
 
    def run(self):
       """
@@ -181,7 +181,7 @@ class DataAnalysis(object):
       self.cal_pressure()
       self.final_result.update({self.group: self.result})
       logger.debug(json.dumps(self.final_result, indent=3))
-      res = pd.DataFrame.from_dict(self.result)
+      res = pd.DataFrame.from_dict(self.final_result, orient='columns')
       return self.group, res
 
 def main(args):

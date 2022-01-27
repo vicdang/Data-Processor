@@ -120,7 +120,9 @@ class WorkersHandler(object):
       """
       Used to export data
       """
-      DataParser.export_data(self.results, "./output/")
+      logger.info(self.results)
+      DataParser.export_data(self.results, "./output/", concat=True,
+                             transpose=True)
 
    def run(self):
       """
