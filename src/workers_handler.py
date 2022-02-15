@@ -59,7 +59,7 @@ class WorkersHandler(object):
             self.results.update({name: data})
          q_item.task_done()
          logger.debug('Thread [%s] is doing [%s]...' % (str(thread_no),
-                                                             str(name)))
+                                                        str(name)))
 
    def start_workers(self, thread_func, q, workers=None, **kwargs):
       """
@@ -89,7 +89,8 @@ class WorkersHandler(object):
             q.put({k: v})
       else:
          for k, v in tasks.items():
-            for i in range(int(k.split(':')[0])):
+            count = k.split(':')[1].split('-')
+            for i in range(int(count[0]), int(count[1])):
                q.put({'%s:%s' % (k, i): v.loc[i]})
       q.join()
 
@@ -100,7 +101,8 @@ class WorkersHandler(object):
       q = queue.Queue()
       self.start_workers(self.thread_func, q)
       self.start_tasks(q, self.tasks, analysis=False)
-      self.dt = util.slice_data(self.deformations, self.groups)
+      self.dt = util.slice_data(self.deformations,
+                                self.groups)
       if self.arg.debug:
          with open("./output/deformation.json", "w") as f:
             f.write(json.dumps(self.deformations, indent=2, sort_keys=True))

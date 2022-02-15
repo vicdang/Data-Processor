@@ -15,6 +15,7 @@ import logging
 import sys
 
 import pandas as pd
+import utility as util
 
 logger = logging.getLogger(__name__)
 
@@ -24,12 +25,15 @@ class DataParser(object):
    def __init__(self, *args, **kwargs):
       super(DataParser, self).__init__()
       self.arg = kwargs.get('arg', None)
+      self.conf = kwargs.get('config', util.get_config())
       self.data = None
       self.file_01 = self.arg.file_01
       self.file_02 = self.arg.file_02
       self.output_file = self.arg.output_file
       self.records_count = 0
       self.sliced_data = {}
+      self.rev_before = self.conf.getint("general", "reserve_before")
+      self.rev_after = self.conf.getint("general", "reserve_after")
       pd.set_option('display.max_columns', None)
 
    @staticmethod
@@ -95,21 +99,27 @@ class DataParser(object):
       Using for slicing the data into multipe record-groups
       :param analysis: analysis on for off
       """
+      records_count = self.records_count - self.rev_before - self.rev_after
       step = int(self.arg.group_count)
-      groups = int(self.records_count / step) + 1
+      groups = int(records_count / step) + 1
       data = None
-      logger.debug("Total rows: %d - Slice: %d - Groups: %d" % (
-         self.records_count, step, groups))
+      logger.debug("Total rows: %d - Selected: %d - Slice: %d - Groups: %d" % (
+                   self.records_count, records_count, step, groups))
 
       if analysis:
          for item in range(0, groups):
-            i = step * item
+            if item > 0:
+               i = step * item
+            else:
+               i = (step * item) + self.rev_before
             j = i + step - 1
-            data = {"%s:%s-%s" % (self.records_count,
+            data = {"%s:%s-%s" % (records_count,
                                   i, j): self.data.loc[i:j, :]}
       else:
-         data = {"%s:%s-%s" % (self.records_count,
-                               0, self.records_count): self.data}
+         i = self.rev_before
+         j = self.records_count - self.rev_after
+         data = {"%s:%s-%s" % (records_count, i, j):
+                 self.data.loc[i:j, :]}
       if self.arg.verbose:
          logger.debug(data)
       self.sliced_data.update(data)

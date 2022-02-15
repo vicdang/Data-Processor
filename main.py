@@ -94,7 +94,7 @@ def main(argv):
    :return: Return code
    """
    conf = util.get_config()
-   dp = DataParser(arg=argv)
+   dp = DataParser(arg=argv, config=conf)
    dp.run()
    tasks = dp.sliced_data
    slave = WorkersHandler(arg=argv, tasks=tasks, workers=argv.worker_num,
