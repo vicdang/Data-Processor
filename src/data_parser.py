@@ -3,7 +3,7 @@
 """
 ---------------------------
 Copyright (C) 2021
-@Authors: dnnvu
+@Authors: vudnn.dl@gmail.com
 @Date: 30-Dec-21
 @Version: 1.0
 ---------------------------
@@ -56,7 +56,8 @@ class DataParser(object):
       self.records_count = int(self.data.shape[0])
 
    @staticmethod
-   def export_data(data, file_name, concat=False, transpose=False):
+   def export_data(data, file_name=None, concat=False, transpose=False,
+                   **kwargs):
       """
       Using to export the data into file
       :param transpose:
@@ -64,13 +65,15 @@ class DataParser(object):
       :param data: Data in
       :param file_name: Output file
       """
-      f_n = '%s/%s.csv' % (file_name, 'result')
+      if file_name:
+         file_name += "_"
+      f_n = './output/%s%s.csv' % (file_name, 'result')
       if type(data) in [dict]:
          if concat:
             res = pd.concat(data,
                             axis=1,
                             join="inner",
-                            ignore_index=True,
+                            ignore_index=kwargs.get('ignore_index', True),
                             keys=None,
                             levels=1,
                             names=None,

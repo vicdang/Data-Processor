@@ -3,7 +3,7 @@
 """
 ---------------------------
 Copyright (C) 2021
-@Authors: dnnvu
+@Authors: vudnn.dl@gmail.com
 @Date: 30-Dec-21
 @Version: 1.0
 ---------------------------
@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 
 import utility as util
+from data_parser import DataParser
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,7 @@ class DataAnalysis(object):
       self.delay = self.conf.getfloat("analysis", "delay")
       self.omega = 2 * math.pi * float(self.f)
       self.result = {}
+      self.sub_result = {}
       self.final_result = {}
 
    def get_data(self):
@@ -119,9 +121,25 @@ class DataAnalysis(object):
          i += 1
       quality_fin = min(np.average(quality_1), np.average(quality_2)) * 100
 
-      return {"%s" % k: x0,
-              "%s_Phi" % k: phi,
-              "%s_Quality" % k: quality_fin}
+      sub_result = {'Image': self.remake(),
+                    '%s_x' % k: x_arr,
+                    '%s_signal_1' % k: approached_signal_1,
+                    '%s_signal_2' % k: approached_signal_2,
+                    '%s_quality_1' % k: quality_1,
+                    '%s_quality_2' % k: quality_2}
+      main_result = {"%s" % k: x0,
+                     "%s_Phi" % k: phi,
+                     "%s_Quality" % k: quality_fin}
+
+      return main_result, sub_result
+
+   def remake(self):
+      """
+      Remake the index of group
+      :return:
+      """
+      gr = self.group.split("-")
+      return [i for i in range(int(gr[0]), int(gr[1]) + 1)]
 
    def cal_data(self, data):
       """
@@ -132,8 +150,11 @@ class DataAnalysis(object):
       self.result.update({'ATime': np.average(data[-1])})
       self.result.update({'AGroup': self.group})
       for k in key:
-         self.result.update(self.calculation(k, data[key.index(k)],
-                                             data[-1]))
+         main_result, sub_result = self.calculation(k,
+                                                    data[key.index(k)],
+                                                    data[-1])
+         self.result.update(main_result)
+         self.sub_result.update(sub_result)
 
    def cal_pressure(self):
       """
@@ -171,6 +192,14 @@ class DataAnalysis(object):
                           'K1': k_l1, 'K1_Phi': phi_k1,
                           'G2': g_l2, 'G2_Phi': phi_g2})
 
+   def export_data(self, data):
+      """
+      Used to export data
+      """
+      logger.info(data)
+      DataParser.export_data(data, file_name=self.group, concat=False,
+                             transpose=True)
+
    def run(self):
       """
       Main processing
@@ -182,6 +211,8 @@ class DataAnalysis(object):
       self.final_result.update({self.group: self.result})
       logger.debug(json.dumps(self.final_result, indent=3))
       res = pd.DataFrame.from_dict(self.final_result, orient='columns')
+      sub = pd.DataFrame.from_dict(self.sub_result, orient='columns')
+      self.export_data(sub)
       return self.group, res
 
 def main(args):

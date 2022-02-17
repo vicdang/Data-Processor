@@ -3,7 +3,7 @@
 """
 ---------------------------
 Copyright (C) 2021
-@Authors: dnnvu
+@Authors: vudnn.dl@gmail.com
 @Date: 30-Dec-21
 @Version: 1.0
 ---------------------------
