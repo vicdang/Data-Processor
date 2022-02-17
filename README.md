@@ -9,17 +9,29 @@ Using to generate and process data
 Directory structure is shown below:
 
 ```
-\.
-|---main.py
-|---README.md
-|---requirements.txt
-|---run.bat
-+---input
-|   |---E1.csv
-|   \---ExpE.csv
-|
-\---output
-    \---*.csv
+data_processor/
+├── README.md
+├── __init__.py
+├── config
+│   └── config.ini
+├── input
+│   ├── E1.csv
+│   └── ExpE.csv
+├── main.py
+├── output
+│   ├── 100-169_result.csv
+│   ├── 170-209_result.csv
+│   ├── 30-99_result.csv
+│   ├── deformation.json
+│   └── final_result.csv
+├── requirements.txt
+├── run.bat
+└── src
+    ├── data_analysis.py
+    ├── data_parser.py
+    ├── data_processor.py
+    ├── utility.py
+    └── workers_handler.py
 
 ```
 ## Steps
@@ -38,10 +50,10 @@ Execute "run.bat", default group 150 items, and uses 10 workers.
 $ python main.py -h
 usage: main.py [-h] [-d] [-v] {exec} ...
 
- - Authors: Vic Dang
+ - Authors: Vic Dang - vudnn.dl@gmail.com
  - Skype: traxanh_dl
  - Usage example:
-   + python main.py -d -v exec -g 100 -w 5
+   + python main.py -d -v exec -g 100 -w 10
 
 positional arguments:
   {exec}         Subcommand help
@@ -81,6 +93,7 @@ python main.py -d exec
 python main.py -d -v exec
 
 # Some others usecases
+# modify values in config file (./config/config.ini)
 python main.py -d -v exec \
                   -f1 ".\input\E1.csv" \
                   -f2 ".\input\ExpE.csv" \ 
