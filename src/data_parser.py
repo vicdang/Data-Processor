@@ -32,8 +32,9 @@ class DataParser(object):
       self.output_file = self.arg.output_file
       self.records_count = 0
       self.sliced_data = {}
-      self.rev_before = self.conf.getint("general", "reserve_before")
-      self.rev_after = self.conf.getint("general", "reserve_after")
+      self.verbose = self.conf.getboolean("app", "verbose")
+      self.rev_before = self.conf.getint("app", "reserve_before")
+      self.rev_after = self.conf.getint("app", "reserve_after")
       pd.set_option('display.max_columns', None)
 
    @staticmethod
@@ -93,34 +94,32 @@ class DataParser(object):
          logger.debug("Exporting: %s" % f_n)
          data.to_csv(f_n, index=True, header=True, encoding='utf-8')
 
-
    def slice_data(self, analysis=False):
       """
       Using for slicing the data into multipe record-groups
       :param analysis: analysis on for off
       """
-      records_count = self.records_count - self.rev_before - self.rev_after
+      records_count = self.records_count
       step = int(self.arg.group_count)
       groups = int(records_count / step) + 1
       data = None
       logger.debug("Total rows: %d - Selected: %d - Slice: %d - Groups: %d" % (
                    self.records_count, records_count, step, groups))
-
       if analysis:
          for item in range(0, groups):
-            if item > 0:
-               i = step * item
-            else:
-               i = (step * item) + self.rev_before
+            i = (step * item) + self.rev_before
             j = i + step - 1
             data = {"%s:%s-%s" % (records_count,
                                   i, j): self.data.loc[i:j, :]}
       else:
-         i = self.rev_before
-         j = self.records_count - self.rev_after
-         data = {"%s:%s-%s" % (records_count, i, j):
-                 self.data.loc[i:j, :]}
-      if self.arg.verbose:
+         frames = []
+         for item in range(0, groups):
+            i = (step * item) + self.rev_before
+            j = i + step - 1
+            frames.append(self.data.loc[i:j, :])
+         data = {"%s:%s-%s" % (records_count, 0, records_count):
+                 pd.concat(frames)}
+      if self.verbose:
          logger.debug(data)
       self.sliced_data.update(data)
 

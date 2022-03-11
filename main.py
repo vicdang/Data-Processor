@@ -26,6 +26,7 @@ from src.workers_handler import WorkersHandler
 
 logger = logging.getLogger()
 CUR_PATH = pathlib.Path().resolve()
+CONF = util.get_config()
 
 def setup_logging(debug: bool = False):
    """
@@ -77,8 +78,6 @@ def parse_cli():
    """
    parser = argparse.ArgumentParser(description=__doc__,
                                     formatter_class=argparse.RawTextHelpFormatter)
-   parser.add_argument('-d', '--debug', action='store_true')
-   parser.add_argument('-v', '--verbose', action='store_true')
    parser.add_argument('-t', '--test', action='store_true',
                        help='Enable test mode')
 
@@ -93,8 +92,7 @@ def main(argv):
    :param argv: ARGS from CLI
    :return: Return code
    """
-   conf = util.get_config()
-   dp = DataParser(arg=argv, config=conf)
+   dp = DataParser(arg=argv, config=CONF)
    dp.run()
    tasks = dp.sliced_data
    slave = WorkersHandler(arg=argv, tasks=tasks, workers=argv.worker_num,
@@ -104,7 +102,8 @@ def main(argv):
 
 if __name__ == "__main__":
    args = parse_cli()
-   setup_logging(args.debug)
+   conf = CONF
+   setup_logging(conf.getboolean("app", "debug"))
    logging.debug('Execute with arguments : %s' % str(args))
    start = time.time()
    main(args)
