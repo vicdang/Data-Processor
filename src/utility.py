@@ -37,6 +37,7 @@ def slice_data(data, groups, **kwargs):
    :param groups:
    :return:
    """
+   rev_before = kwargs.get('rev_before', 0)
    max_val = len(data) - 1
    items = data.items()
    dt = collections.OrderedDict(sorted(items))
@@ -45,8 +46,8 @@ def slice_data(data, groups, **kwargs):
    end = int(groups) - 1
    gp = {}
    while True:
-      gp.update({"%d-%d" % (start + gap, end + gap): dict(list(items)[
-                                                        start:end + 1])})
+      gp.update({"%d-%d" % (start + gap, end + gap): dict(list(
+            items)[start:end + 1])})
       start = end + 1
       end = end + int(groups) if end + int(groups) < max_val else max_val
       if start >= max_val:

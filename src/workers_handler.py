@@ -23,16 +23,29 @@ from data_processor import DataProcessor
 from data_analysis import DataAnalysis
 
 logger = logging.getLogger(__name__)
+REV_BEFORE = 0
+REV_AFTER = 0
+GROUP = 0
 
 class WorkersHandler(object):
    """docstring for WorkersHandler"""
 
    def __init__(self, **kwargs):
       super(WorkersHandler, self).__init__()
+      global REV_BEFORE
+      global REV_AFTER
+      global GROUP
+      self.conf = kwargs.get('config', util.get_config())
       self.arg = kwargs.get('arg', None)
       self.tasks = kwargs.get('tasks', None)
-      self.groups = kwargs.get('groups', None)
-      self.workers = range(kwargs.get('workers', 10))
+      self.debug = self.conf.getboolean("app", "debug")
+      self.verbose = self.conf.getboolean("app", "verbose")
+      self.groups = GROUP = kwargs.get('groups', self.conf.getint("app",
+                                                                  "group_by"))
+      self.workers = range(kwargs.get('workers', self.conf.getint("app",
+                                                                  "workers")))
+      self.rev_before = REV_BEFORE = self.conf.getint("app", "reserve_before")
+      self.rev_after = REV_AFTER = self.conf.getint("app", "reserve_after")
       self.deformations = {}
       self.dt = None
       self.results = {}
@@ -83,14 +96,22 @@ class WorkersHandler(object):
       :param tasks: Tasks
       :param analysis: analysis on or off
       """
+      global REV_BEFORE
+      flag = 0
       if analysis:
          for k, v in tasks.items():
             q.put({k: v})
       else:
          for k, v in tasks.items():
             count = k.split(':')[1].split('-')
+            n = 0
             for i in range(int(count[0]), int(count[1])):
-               q.put({'%s:%s' % (k, i): v.loc[i]})
+               gap = n * GROUP + REV_BEFORE
+               if i >= gap:
+                  if i == (n + 1) * GROUP:
+                     n += 1
+                     continue
+                  q.put({'%s:%s' % (k, i): v.loc[i]})
       q.join()
 
    def run_pre_calculation(self):
@@ -100,9 +121,10 @@ class WorkersHandler(object):
       q = queue.Queue()
       self.start_workers(self.thread_func, q)
       self.start_tasks(q, self.tasks, analysis=False)
+      logger.debug(self.deformations)
       self.dt = util.slice_data(self.deformations,
-                                self.groups)
-      if self.arg.debug:
+                                self.groups, rev_before=self.rev_before)
+      if self.debug:
          with open("./output/deformation.json", "w") as f:
             f.write(json.dumps(self.deformations, indent=2, sort_keys=True))
 
