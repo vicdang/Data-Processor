@@ -30,7 +30,7 @@ GROUP = 0
 class WorkersHandler(object):
    """docstring for WorkersHandler"""
 
-   def __init__(self, *args, **kwargs):
+   def __init__(self, **kwargs):
       super(WorkersHandler, self).__init__()
       global REV_BEFORE
       global REV_AFTER
@@ -40,10 +40,8 @@ class WorkersHandler(object):
       self.tasks = kwargs.get('tasks', None)
       self.debug = self.conf.getboolean("app", "debug")
       self.verbose = self.conf.getboolean("app", "verbose")
-      self.groups = GROUP = kwargs.get('groups', self.conf.getint("app",
-                                                                  "group_by"))
-      self.workers = range(kwargs.get('workers', self.conf.getint("app",
-                                                                  "workers")))
+      self.groups = GROUP = self.conf.getint("app", "group_by")
+      self.workers = range(self.conf.getint("app", "workers"))
       self.rev_before = REV_BEFORE = self.conf.getint("app", "reserve_before")
       self.rev_after = REV_AFTER = self.conf.getint("app", "reserve_after")
       self.deformations = {}
@@ -59,12 +57,11 @@ class WorkersHandler(object):
       """
       while True:
          task_item = q_item.get()
-         name = None
          if not analysis:
             name = next(iter(task_item))
             dp = DataProcessor(data=task_item[name],
                                name=int(name.split(':')[-1]))
-            data = dp.run()
+            dp.run()
             self.deformations.update({int(name.split(':')[-1]): dp.deformations})
          else:
             da = DataAnalysis(data=task_item)
@@ -101,6 +98,7 @@ class WorkersHandler(object):
       flag = 0
       if analysis:
          for k, v in tasks.items():
+            logger.debug("k : %s - v : %s" % (k, v))
             q.put({k: v})
       else:
          for k, v in tasks.items():
@@ -112,7 +110,8 @@ class WorkersHandler(object):
                   if i == (n + 1) * GROUP:
                      n += 1
                      continue
-                  q.put({'%s:%s' % (k, i): v.loc[i]})
+                  else:
+                     q.put({'%s:%s' % (k, i): v.loc[i]})
       q.join()
 
    def run_pre_calculation(self):
@@ -122,7 +121,8 @@ class WorkersHandler(object):
       q = queue.Queue()
       self.start_workers(self.thread_func, q)
       self.start_tasks(q, self.tasks, analysis=False)
-      logger.debug(self.deformations)
+      if self.verbose:
+         logger.debug(json.dumps(self.deformations, indent=3))
       self.dt = util.slice_data(self.deformations,
                                 self.groups, rev_before=self.rev_before)
       if self.debug:
@@ -144,7 +144,7 @@ class WorkersHandler(object):
       Used to export data
       """
       logger.debug(self.results)
-      DataParser.export_data(self.results, "./output/", concat=True,
+      DataParser.export_data(self.results, file_name="final", concat=True,
                              transpose=True)
 
    def run(self):
@@ -160,6 +160,7 @@ def main(args):
    :param args:
    :return:
    """
+   logger.debug(args)
    return
 
 if __name__ == '__main__':

@@ -3,7 +3,7 @@
 """
 ---------------------------
 Copyright (C) 2021
-@Authors: dnnvu
+@Authors: vudnn.dl@gmail.com
 @Date: 30-Dec-21
 @Version: 1.0
 ---------------------------
@@ -11,9 +11,7 @@ Copyright (C) 2021
    - data_processor.py <options>
 
 """
-import json
 import logging
-import math
 import sys
 
 import numpy as np
@@ -26,7 +24,7 @@ logger = logging.getLogger(__name__)
 class DataProcessor(object):
    """docstring for DataProcessor"""
 
-   def __init__(self, *args, **kwargs):
+   def __init__(self, **kwargs):
       self.conf = kwargs.get('config', util.get_config())
       super(DataProcessor, self).__init__()
       self.arg = kwargs.get('arg', None)
@@ -87,7 +85,6 @@ class DataProcessor(object):
       returns list of AVG(variance delta ut) by layer (L0, L1, L2)
       """
       variance_delta_ut = []
-      v = []
       for row in range(int(self.rect_count)):
          u = self.delta_uts[row]
          du = self.avg_delta_uts[self.get_layer(row)]
@@ -213,14 +210,6 @@ class DataProcessor(object):
          layer = 2
       return layer
 
-   def filter_data(self, regex='([a-zA-Z]+ \[mm\]|\[rad\]|\(cylinder\)|ai)'):
-      """
-      Used to filter data col by regex string
-      :param regex: regex string to filter
-      :return:
-      """
-      return self.dp.filter(regex=regex)
-
    @staticmethod
    def get_avg(data):
       """
@@ -277,6 +266,7 @@ def main(args):
    :param args:
    :return:
    """
+   logger.debug(args)
    return
 
 if __name__ == '__main__':

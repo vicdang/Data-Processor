@@ -1,10 +1,15 @@
 # -*- coding: utf-8 -*-
 # vim:ts=3:sw=3:expandtab
 """
- Authors: 
-
+---------------------------
+Copyright (C) 2021
+@Authors: vudnn.dl@gmail.com
+@Date: 30-Dec-21
+@Version: 1.0
+---------------------------
  Usage example:
-   - <Script>
+   - utility.py <options>
+
 """
 import collections
 import logging
@@ -33,19 +38,21 @@ def slice_data(data, groups, **kwargs):
    :return:
    """
    rev_before = kwargs.get('rev_before', 0)
-   max = len(data) - 1
    items = data.items()
    dt = collections.OrderedDict(sorted(items))
-   gap = int(list(dt.keys())[0])
-   start = 0
-   end = int(groups) - 1
+   max_val = int(list(dt.keys())[-1])
+   g = groups - rev_before
+   start = rev_before
+   fn = g
+   end = groups - 1
+   s = 0
    gp = {}
    while True:
-      gp.update({"%d-%d" % (start + gap, end + gap): dict(list(
-            items)[start:end + 1])})
-      start = end + 1
-      end = end + int(groups) if end + int(groups) < max else max
-      if start >= max:
+      gp.update({"%d-%d" % (start, end): dict(list(sorted(items))[s: fn])})
+      start = end + rev_before + 1
+      s = fn
+      fn = s + g
+      end = end + int(groups) if end + int(groups) < max_val else max_val
+      if start >= max_val:
          break
    return gp
-
