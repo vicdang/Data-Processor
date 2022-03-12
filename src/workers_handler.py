@@ -40,10 +40,8 @@ class WorkersHandler(object):
       self.tasks = kwargs.get('tasks', None)
       self.debug = self.conf.getboolean("app", "debug")
       self.verbose = self.conf.getboolean("app", "verbose")
-      self.groups = GROUP = kwargs.get('groups', self.conf.getint("app",
-                                                                  "group_by"))
-      self.workers = range(kwargs.get('workers', self.conf.getint("app",
-                                                                  "workers")))
+      self.groups = GROUP = self.conf.getint("app", "group_by")
+      self.workers = range(self.conf.getint("app", "workers"))
       self.rev_before = REV_BEFORE = self.conf.getint("app", "reserve_before")
       self.rev_after = REV_AFTER = self.conf.getint("app", "reserve_after")
       self.deformations = {}
@@ -100,18 +98,20 @@ class WorkersHandler(object):
       flag = 0
       if analysis:
          for k, v in tasks.items():
+            logger.debug("k : %s - v : %s" % (k, v))
             q.put({k: v})
       else:
          for k, v in tasks.items():
             count = k.split(':')[1].split('-')
-            n = 0
+            n, m = 0, 1
             for i in range(int(count[0]), int(count[1])):
                gap = n * GROUP + REV_BEFORE
                if i >= gap:
                   if i == (n + 1) * GROUP:
                      n += 1
                      continue
-                  q.put({'%s:%s' % (k, i): v.loc[i]})
+                  else:
+                     q.put({'%s:%s' % (k, i): v.loc[i]})
       q.join()
 
    def run_pre_calculation(self):
@@ -121,7 +121,8 @@ class WorkersHandler(object):
       q = queue.Queue()
       self.start_workers(self.thread_func, q)
       self.start_tasks(q, self.tasks, analysis=False)
-      logger.debug(self.deformations)
+      if self.verbose:
+         logger.debug(json.dumps(self.deformations, indent=3))
       self.dt = util.slice_data(self.deformations,
                                 self.groups, rev_before=self.rev_before)
       if self.debug:

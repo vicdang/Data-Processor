@@ -122,6 +122,7 @@ class DataAnalysis(object):
       quality_fin = min(np.average(quality_1), np.average(quality_2)) * 100
 
       sub_result = {'Image': self.remake(),
+                    'Time': times,
                     '%s_x' % k: x_arr,
                     '%s_signal_1' % k: approached_signal_1,
                     '%s_signal_2' % k: approached_signal_2,
@@ -196,7 +197,6 @@ class DataAnalysis(object):
       """
       Used to export data
       """
-      logger.info(data)
       DataParser.export_data(data, file_name=self.group, concat=False,
                              transpose=True)
 
