@@ -105,15 +105,15 @@ if __name__ == "__main__":
    conf = CONF
    setup_logging(conf.getboolean("app", "debug"))
    logging.debug('Execute with arguments : %s' % str(args))
-   start = time.time()
-   main(args)
-   end = time.time()
-   logger.info("Processed in [" + str(end - start) + "] seconds...")
-   # try:
-   #    start = time.time()
-   #    main(args)
-   #    end = time.time()
-   #    logger.info("Processed in [" + str(end - start) + "] seconds...")
-   # except Exception as err:
-   #    logging.error('Performing action: %s' % args.action)
-   #    logging.error('ERROR: %s' % err)
+   # start = time.time()
+   # main(args)
+   # end = time.time()
+   # logger.info("Processed in [" + str(end - start) + "] seconds...")
+   try:
+      start = time.time()
+      main(args)
+      end = time.time()
+      logger.info("Processed in [" + str(end - start) + "] seconds...")
+   except Exception as err:
+      logging.error('Performing action: %s' % args.action)
+      logging.error('ERROR: %s' % err)
